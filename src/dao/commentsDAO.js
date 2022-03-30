@@ -1,4 +1,5 @@
 import { ObjectId } from "bson"
+import { use } from "chai"
 
 let comments
 
@@ -45,7 +46,13 @@ export default class CommentsDAO {
     try {
       // TODO Ticket: Create/Update Comments
       // Construct the comment document to be inserted into MongoDB.
-      const commentDoc = { someField: "someValue" }
+      const commentDoc = {
+        name : user.name,
+        email : user.email,
+        movie_id : ObjectId(movieId),
+        text : comment,
+        date : date
+      }
 
       return await comments.insertOne(commentDoc)
     } catch (e) {
@@ -70,8 +77,8 @@ export default class CommentsDAO {
       // Use the commentId and userEmail to select the proper comment, then
       // update the "text" and "date" fields of the selected comment.
       const updateResponse = await comments.updateOne(
-        { someField: "someValue" },
-        { $set: { someOtherField: "someOtherValue" } },
+        { _id : ObjectId(commentId), email : userEmail },
+        { $set: { text, date} },
       )
 
       return updateResponse
@@ -96,6 +103,7 @@ export default class CommentsDAO {
       // Use the userEmail and commentId to delete the proper comment.
       const deleteResponse = await comments.deleteOne({
         _id: ObjectId(commentId),
+        email : userEmail
       })
 
       return deleteResponse
@@ -116,11 +124,27 @@ export default class CommentsDAO {
     try {
       // TODO Ticket: User Report
       // Return the 20 users who have commented the most on MFlix.
-      const pipeline = []
+      const groupStage = {
+        '$group' : {
+          _id : '$email',
+          count : { $sum : 1}
+        }
+      }
+
+      const sortStage = {
+        $sort : {
+          count : -1
+        }
+      }
+
+      const limitStage = {
+        $limit : 20
+      }
+      const pipeline = [ groupStage, sortStage, limitStage]
 
       // TODO Ticket: User Report
       // Use a more durable Read Concern here to make sure this data is not stale.
-      const readConcern = comments.readConcern
+      const readConcern = { readConcern : { level : "majority"}}
 
       const aggregateResult = await comments.aggregate(pipeline, {
         readConcern,
